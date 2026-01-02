@@ -19,11 +19,6 @@ Designed for ORM debugging when `DEBUG = True`.
 
 ## Requirements
 
-Create a `requirements.txt` file:
-
-```txt
-rich
-```
 Install dependencies:
 
 ```bash
