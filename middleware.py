@@ -1,3 +1,4 @@
+import copy
 import re
 import time
 from collections import Counter
@@ -19,6 +20,7 @@ class QueryCountLoggingMiddleware:
             r"IN\s*\([^\)]*\)",
         ]
         self.console = Console()
+        self.IGNORED_QUERY_PATTERNS = ["COMMIT", "BEGIN", 'SELECT "django_session".']
 
     def normalize_sql(self, query: dict) -> str:
         normalized = query["sql"]
@@ -33,6 +35,13 @@ class QueryCountLoggingMiddleware:
     def duplicate_queries(self, queries):
         counter = Counter(q["sql"] for q in queries)
         return {sql: count for sql, count in counter.items() if count > 1}
+
+    def normalize_queries(self, queries):
+        for q in queries:
+            for pattern in self.IGNORED_QUERY_PATTERNS:
+                if pattern in q["sql"]:
+                    queries.remove(q)
+        return queries
 
     def pretty_print(self, path, duration, total, similar, duplicate):
         header = Text(" Django Query Inspector ", style="bold white on dark_green")
@@ -91,11 +100,13 @@ class QueryCountLoggingMiddleware:
         response = self.get_response(request)
         duration = (time.monotonic() - start)
 
-        queries = connection.queries
-        total_queries = len(queries)
+        queries = copy.deepcopy(connection.queries)
+        queries = self.normalize_queries(queries)
 
+        total_queries = len(queries)
         similar = self.similar_queries(queries)
         duplicate = self.duplicate_queries(queries)
+        print(queries)
 
         self.pretty_print(request.path,duration,total_queries,similar,duplicate)
         return response
